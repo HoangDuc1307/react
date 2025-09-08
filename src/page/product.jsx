@@ -56,7 +56,7 @@ const ProductPage = () => {
         else if (sortBy === "nameDesc") list.sort((a, b) => (b.name || "").localeCompare(a.name || ""));
         // newest: leave as fetched order assuming API returns newest first
         return list;
-    }, [dataSource, searchText, priceRange, sortBy]);
+    }, [dataSource, sortBy]);
 
     // Thêm sản phẩm mới
     const onFinishAdd = async (values) => {
@@ -133,47 +133,50 @@ const ProductPage = () => {
                         setIsEditOpen(true);
                         editForm.setFieldsValue({ name: record.name, price: record.price, category: record.category });
                     }}>Sửa</Button>
-                    {['giay-dep','thoi-trang','dien-tu','phu-kien','khac'].includes(record.category) && (
-                    <Button onClick={async () => {
-                        try {
-                            // Load category config from backend
-                            let config = null;
+                    {['giay-dep', 'thoi-trang', 'dien-tu', 'phu-kien', 'khac'].includes(record.category) && (
+                        <Button onClick={async () => {
                             try {
-                                config = await getCategoryConfigApi(record.category);
-                            } catch {}
-                            const res = await getVariantsApi(record._id);
-                            const variants = Array.isArray(res?.variants) ? res.variants : (Array.isArray(res) ? res : []);
-                            let items = variants;
-                            let typeKeys = [];
-                            let fashionType = 'ao';
-                            if (config && typeof config === 'object') {
-                                const mode = config.sizeMode;
-                                const predefined = Array.isArray(config.predefinedSizes) ? config.predefinedSizes : [];
-                                const typeSets = config?.metadata && typeof config.metadata === 'object' ? config.metadata.typeSets : null;
-                                if (mode === 'electronics') {
-                                    const existing = variants.find(v => v.size === 'default');
-                                    items = [ existing ? existing : { size: 'default', stock: 0, sku: '', priceDelta: 0 } ];
-                                } else if (typeSets && typeof typeSets === 'object') {
-                                    typeKeys = Object.keys(typeSets);
-                                    fashionType = typeKeys[0] || 'ao';
-                                    const sizes = typeSets[fashionType] || [];
-                                    items = sizes.map(sz => {
-                                        const found = variants.find(v => String(v.size) === String(sz));
-                                        return found ? { ...found, size: String(sz) } : { size: String(sz), stock: 0, sku: '', priceDelta: 0 };
-                                    });
-                                } else if (predefined.length > 0 || mode === 'shoes' || mode === 'fashion_top' || mode === 'fashion_bottom') {
-                                    const sizes = predefined.length > 0 ? predefined : [];
-                                    items = sizes.map(sz => {
-                                        const found = variants.find(v => String(v.size) === String(sz));
-                                        return found ? { ...found, size: String(sz) } : { size: String(sz), stock: 0, sku: '', priceDelta: 0 };
-                                    });
+                                // Load category config from backend
+                                let config = null;
+                                try {
+                                    config = await getCategoryConfigApi(record.category);
+                                } catch (e) {
+                                    // ignore category config fetch errors; fallback to defaults
                                 }
+                                // Load existing variants
+                                const res = await getVariantsApi(record._id);
+                                const variants = Array.isArray(res?.variants) ? res.variants : (Array.isArray(res) ? res : []);
+                                let items = variants;
+                                let typeKeys = [];
+                                let fashionType = 'ao';
+                                if (config && typeof config === 'object') {
+                                    const mode = config.sizeMode;
+                                    const predefined = Array.isArray(config.predefinedSizes) ? config.predefinedSizes : [];
+                                    const typeSets = config?.metadata && typeof config.metadata === 'object' ? config.metadata.typeSets : null;
+                                    if (mode === 'electronics') {
+                                        const existing = variants.find(v => v.size === 'default');
+                                        items = [existing ? existing : { size: 'default', stock: 0, sku: '', priceDelta: 0 }];
+                                    } else if (typeSets && typeof typeSets === 'object') {
+                                        typeKeys = Object.keys(typeSets);
+                                        fashionType = typeKeys[0] || 'ao';
+                                        const sizes = typeSets[fashionType] || [];
+                                        items = sizes.map(sz => {
+                                            const found = variants.find(v => String(v.size) === String(sz));
+                                            return found ? { ...found, size: String(sz) } : { size: String(sz), stock: 0, sku: '', priceDelta: 0 };
+                                        });
+                                    } else if (predefined.length > 0 || mode === 'shoes' || mode === 'fashion_top' || mode === 'fashion_bottom') {
+                                        const sizes = predefined.length > 0 ? predefined : [];
+                                        items = sizes.map(sz => {
+                                            const found = variants.find(v => String(v.size) === String(sz));
+                                            return found ? { ...found, size: String(sz) } : { size: String(sz), stock: 0, sku: '', priceDelta: 0 };
+                                        });
+                                    }
+                                }
+                                setVariantModal({ open: true, product: record, items, saving: false, fashionType, config, typeKeys });
+                            } catch (e) {
+                                setVariantModal({ open: true, product: record, items: [], saving: false, fashionType: 'ao', config: null, typeKeys: [] });
                             }
-                            setVariantModal({ open: true, product: record, items, saving: false, fashionType, config, typeKeys });
-                        } catch (e) {
-                            setVariantModal({ open: true, product: record, items: [], saving: false, fashionType: 'ao', config: null, typeKeys: [] });
-                        }
-                    }}>Quản lý size</Button>
+                        }}>Quản lý size</Button>
                     )}
                     <Button danger onClick={async () => {
                         const res = await deleteProductApi(record._id);
@@ -341,7 +344,7 @@ const ProductPage = () => {
                             onChange={(e) => setVariantModal(v => ({ ...v, newSize: e.target.value }))} style={{ width: 160 }} />
                         <Input placeholder="Tồn kho" type="number" value={variantModal.newStock}
                             onChange={(e) => setVariantModal(v => ({ ...v, newStock: e.target.value }))} style={{ width: 120 }} />
-                
+
                         <Button type="primary" onClick={() => {
                             const size = (variantModal.newSize || '').trim();
                             if (!size) return;
@@ -358,11 +361,13 @@ const ProductPage = () => {
                     size="small"
                     columns={[
                         { title: 'Size', dataIndex: 'size' },
-                        { title: 'Còn hàng', dataIndex: 'inStock', render: (t, r, idx) => (
-                            <Switch checked={Number(r.stock || 0) > 0} onChange={(checked) => {
-                                setVariantModal(v => ({ ...v, items: v.items.map((it, i) => i === idx ? { ...it, stock: checked ? (it.stock || 1) : 0 } : it) }));
-                            }} />
-                        )},
+                        {
+                            title: 'Còn hàng', dataIndex: 'inStock', render: (t, r, idx) => (
+                                <Switch checked={Number(r.stock || 0) > 0} onChange={(checked) => {
+                                    setVariantModal(v => ({ ...v, items: v.items.map((it, i) => i === idx ? { ...it, stock: checked ? (it.stock || 1) : 0 } : it) }));
+                                }} />
+                            )
+                        },
                         {
                             title: 'Tồn kho', dataIndex: 'stock', render: (t, r, idx) => (
                                 <Input type="number" value={r.stock} onChange={(e) => {
