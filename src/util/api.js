@@ -24,12 +24,13 @@ const getUserApi = () => {
     return axios.get(URL_API)
 }
 
-const createProductApi = (name, price, imageUrl) => {
+const createProductApi = (name, price, imageUrl, category) => {
     const URL_API = "v1/api/product/";
     const data = {
         name,
         price,
-        imageUrl
+        imageUrl,
+        category
     };
     return axios.post(URL_API, data)
 }
@@ -47,6 +48,33 @@ const deleteProductApi = (id) => {
 const updateProductApi = (id, payload) => {
     const URL_API = `v1/api/product/${id}`;
     return axios.put(URL_API, payload);
+}
+
+// Variant APIs
+export const getVariantsApi = (productId) => {
+    const URL_API = `v1/api/product/${productId}/variants`;
+    return axios.get(URL_API);
+}
+
+export const upsertVariantsApi = (productId, variants) => {
+    const URL_API = `v1/api/product/${productId}/variants`;
+    return axios.post(URL_API, { variants });
+}
+
+export const deleteVariantApi = (productId, size) => {
+    const URL_API = `v1/api/product/${productId}/variants?size=${encodeURIComponent(size)}`;
+    return axios.delete(URL_API);
+}
+
+// Category config APIs
+export const getCategoryConfigApi = (key) => {
+    const URL_API = `v1/api/category-config/${key}`;
+    return axios.get(URL_API);
+}
+
+export const listCategoryConfigsApi = () => {
+    const URL_API = `v1/api/category-config`;
+    return axios.get(URL_API);
 }
 
 export {
